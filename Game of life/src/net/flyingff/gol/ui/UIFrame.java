@@ -7,22 +7,26 @@ import java.awt.Graphics;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
+import java.io.InputStream;
 
 import javax.swing.JFrame;
 
+import net.flyingff.gol.func.CalcFunction;
+import net.flyingff.gol.func.NewFuntionProvider;
 import net.flyingff.gol.gif.AnimatedGifEncoder;
 
 public class UIFrame extends JFrame{
 	private static final long serialVersionUID = -549023984946427733L;
 	private int width, height;
 	private MyPanel pane;
-	private boolean recording = false;
+	private boolean recording = false, pause = false;
+	private CalcFunction cf;
 	public UIFrame(int w, int h) {
 		width = w;
 		height = h;
 		setTitle("Game of Life");
 		getContentPane().add(pane = new MyPanel(width, height), BorderLayout.CENTER);
-		setSize(500,400);
+		setSize(w * 2,h * 2);
 		setLocationByPlatform(true);
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setVisible(true);
@@ -37,6 +41,9 @@ public class UIFrame extends JFrame{
 					if (!recording)
 						init(); 
 					break;
+				case KeyEvent.VK_P:
+					pause = !pause;
+					break;
 				case KeyEvent.VK_B:
 					if (!recording) {
 						setTitle("Game of Life - Recording...");
@@ -48,18 +55,35 @@ public class UIFrame extends JFrame{
 					}
 					recording = !recording;
 					break;
+				case KeyEvent.VK_F:
+					pause = true;
+					CalcFunction tmp = NewFuntionProvider.prompt();
+					cf = tmp == null? cf: tmp;
+					pause = false;
+					break;
+				case KeyEvent.VK_D:
+					loadDefaultFunction();
+					break;
 				}
 			}
 		});
+		loadDefaultFunction();
 	}
 	public void init(){
-		for(int i= 0; i < width; i++) {
-			for(int j = 0; j < height; j++)
+		pause = true;
+		for(int i = 0; i < width; i++)
+			for(int j = 0; j < height; j++) {
+				pane.set(i, j, 0);
+			}
+		for(int i= width / 4; i < 3 * width / 4; i++) {
+			for(int j = height / 4; j < 3 * height/ 4; j++)
 				pane.set(i, j, Math.random() > 0.2? 0 : (int) (Math.random() * 8));
 		}
 		pane.flip();
+		pause = false;
 	}
 	public void next(){
+		if(pause || cf == null) return;
 		int[] aliveNum = new int[7];
 		for(int i = 0; i < width; i++) {
 			for(int j = 0; j < height; j++) {
@@ -76,35 +100,29 @@ public class UIFrame extends JFrame{
 						}
 					}
 				}
-				pane.set(i, j, nextState(pane.get(i, j), aliveNum));
+				pane.set(i, j, cf.nextState(pane.get(i, j), aliveNum));
 			}
 		}
 		pane.flip();
 	}
-	private final int dist(int x, int y){
-		if (x == 0) return 3;
-		return 7 - ((x - y + 7) % 7);
-	}
-	//private int dist[] = new int[7];
-	private int nextState(int curr, int[] live) {
-		int max = -1, maxi = 0;
-		for(int i = 0; i < 7; i++) {
-			int dx = dist(curr, i + 1) * live[i];
-			if (max < dx) {
-				max = dx;
-				maxi = i;
+	private void loadDefaultFunction(){
+		InputStream is = getClass().getResourceAsStream("default.txt");
+		StringBuilder sb = new StringBuilder();
+		try {
+			byte[] buf = new byte[4096];
+			while(is.available() > 0) {
+				sb.append(new String(buf, 0, is.read(buf)));
 			}
-		}
-		if(max < 3) return 0;
-		if(max < 5 && curr == 0) return maxi + 1;
-		if(max > 8) return maxi + 1;
-		return curr;
+			cf = NewFuntionProvider.prompt(sb.toString());
+			is.close();
+			if (cf == null) throw new NullPointerException();
+		} catch (Exception e) {throw new RuntimeException(e);}
 	}
 	public static void main(String[] args) throws Exception{
-		UIFrame f = new UIFrame(200, 200);
+		UIFrame f = new UIFrame(200, 160);
 		f.init();
 		for(;;){
-			Thread.sleep(200);
+			Thread.sleep(100);
 			f.next();
 		}
 	}
@@ -131,7 +149,6 @@ class MyPanel extends Component {
 		colnum = col;
 		matrix = new int[row][col];
 		nextmatrix = new int[row][col];
-		
 	}
 	
 	public void flip(){
@@ -167,7 +184,6 @@ class MyPanel extends Component {
 			frame = new BufferedImage(w, h, BufferedImage.TYPE_3BYTE_BGR);
 		}
 		Graphics g = frame.getGraphics();
-		int cellw = w / colnum + 1, cellh = h / rownum + 1;
 		g.setColor(Color.white);
 		g.fillRect(0, 0, getWidth(), getHeight());
 		
@@ -195,7 +211,7 @@ class MyPanel extends Component {
 		gx.drawImage(frame, 0, 0, null);
 		if (shouldAdd && e != null) {
 			e.addFrame(frame);
-			e.setDelay(200);
+			e.setDelay(100);
 			shouldAdd = false;
 		}
 	}

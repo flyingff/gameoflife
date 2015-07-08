@@ -1,0 +1,24 @@
+import net.flyingff.gol.func.CalcFunction;
+
+public class GenerateFunction implements CalcFunction {
+	private final int dist(int x, int y){
+		if (x == 0) return 4;
+		int k = ((x - y + 7) % 7);
+		return 4 -(k > 3? 7 - k: k);
+	}
+	public int nextState(int curr, int[] live) {
+		int max = -1, maxi = 0;
+		for(int i = 0; i < 7; i++) {
+			int dx = dist(curr, i + 1) * live[i];
+			if (max < dx) {
+				max = dx;
+				maxi = i;
+			}
+		}
+		if(max < 5) return 0;
+		if(max < 8 && curr == 0) return maxi + 1;
+		if(max == 24) return (maxi + 1) % 7 + 1;
+		if(max > 8) return maxi + 1;
+		return curr;
+	}
+}
